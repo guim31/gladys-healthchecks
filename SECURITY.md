@@ -30,6 +30,19 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration handles:
+
+- the **API key** of a Healthchecks project, stored by Gladys in the
+  integration configuration (never written to `/data`, never logged); it is
+  only sent, in the `X-Api-Key` header, to the address configured, and
+  redirects are not followed so it never reaches another host;
+- the **ping URLs** of the checks (full key only), which are secrets of their
+  own: kept in memory, never logged nor published to Gladys;
+- `/data/healthchecks-state.json`: the last state of each check and since when
+  (no secret);
+- network: HTTP(S) requests to the Healthchecks address and to the ping URLs,
+  nothing else; no port is opened.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+and Healthchecks itself (healthchecks.io or the self-hosted server).

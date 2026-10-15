@@ -1,177 +1,693 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Healthchecks",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Your cron jobs and backups watched by Healthchecks, in Gladys: react when one stops.",
+    "fr": "Vos tâches cron et sauvegardes suivies par Healthchecks dans Gladys : réagissez si l'une s'arrête.",
+    "de": "Deine Cronjobs und Backups aus Healthchecks in Gladys: Reagiere, wenn einer ausbleibt.",
+    "es": "Sus tareas cron y copias vigiladas por Healthchecks en Gladys: reaccione si una se detiene."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-healthchecks:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-healthchecks/main/cover.png",
+  "categories": ["services", "network"],
+  "transports": ["cloud", "local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your Healthchecks project",
+        "fr": "Votre projet Healthchecks",
+        "de": "Dein Healthchecks-Projekt",
+        "es": "Su proyecto Healthchecks"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "In Healthchecks, open the project Settings → API Access, create an API key and paste it below. The full key also allows pause, resume and ping; the read-only key only reads. Then add the checks to follow from the Discover tab.",
+        "fr": "Dans Healthchecks, ouvrez les Settings du projet → API Access, créez une clé d'API et collez-la ci-dessous. La clé complète permet aussi pause, reprise et ping ; celle en lecture seule ne fait que lire. Ajoutez ensuite les contrôles à suivre depuis l'onglet Découverte.",
+        "de": "Öffne in Healthchecks die Settings des Projekts → API Access, erstelle einen API-Schlüssel und füge ihn unten ein. Der vollständige Schlüssel erlaubt auch Pausieren, Fortsetzen und Ping, der schreibgeschützte nur Lesen. Lege dann die Checks im Tab „Entdecken“ an.",
+        "es": "En Healthchecks, abra los Settings del proyecto → API Access, cree una clave de API y péguela abajo. La clave completa permite también pausa, reanudación y ping; la de solo lectura solo lee. Después añada los controles desde la pestaña Descubrir."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-healthchecks/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Einrichtungsanleitung",
+            "es": "Guía de instalación"
+          }
+        },
+        {
+          "url": "https://healthchecks.io/docs/api/",
+          "label": {
+            "en": "Healthchecks API",
+            "fr": "API de Healthchecks",
+            "de": "Healthchecks-API",
+            "es": "API de Healthchecks"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "url",
+      "type": "string",
+      "label": {
+        "en": "Healthchecks address",
+        "fr": "Adresse de Healthchecks",
+        "de": "Healthchecks-Adresse",
+        "es": "Dirección de Healthchecks"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
       "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+        "en": "https://healthchecks.io, or the address of your own server (its SITE_ROOT).",
+        "fr": "https://healthchecks.io, ou l'adresse de votre propre serveur (son SITE_ROOT).",
+        "de": "https://healthchecks.io oder die Adresse deines eigenen Servers (sein SITE_ROOT).",
+        "es": "https://healthchecks.io, o la dirección de su propio servidor (su SITE_ROOT)."
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "placeholder": {
+        "en": "e.g. http://192.168.1.2:8000",
+        "fr": "ex. http://192.168.1.2:8000",
+        "de": "z. B. http://192.168.1.2:8000",
+        "es": "p. ej. http://192.168.1.2:8000"
+      },
       "required": false,
-      "default": "celsius",
+      "default": "https://healthchecks.io"
+    },
+    {
+      "key": "api_key",
+      "type": "secret",
+      "label": {
+        "en": "API key",
+        "fr": "Clé d'API",
+        "de": "API-Schlüssel",
+        "es": "Clave de API"
+      },
+      "description": {
+        "en": "The key of one project. Read-only is enough to follow the checks.",
+        "fr": "La clé d'un projet. Celle en lecture seule suffit pour suivre les contrôles.",
+        "de": "Der Schlüssel eines Projekts. Der schreibgeschützte reicht, um den Checks zu folgen.",
+        "es": "La clave de un proyecto. La de solo lectura basta para seguir los controles."
+      },
+      "required": false
+    },
+    {
+      "key": "options",
+      "type": "section",
+      "label": {
+        "en": "Options",
+        "fr": "Options",
+        "de": "Optionen",
+        "es": "Opciones"
+      }
+    },
+    {
+      "key": "poll_interval",
+      "type": "select",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often Healthchecks is read: one API request each time.",
+        "fr": "À quelle fréquence Healthchecks est lu : une requête d'API à chaque fois.",
+        "de": "Wie oft Healthchecks gelesen wird: jedes Mal eine API-Anfrage.",
+        "es": "Con qué frecuencia se lee Healthchecks: una petición de API cada vez."
+      },
+      "required": false,
+      "default": "60",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the names",
+        "fr": "Langue des noms",
+        "de": "Sprache der Namen",
+        "es": "Idioma de los nombres"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Language of the feature names (set when a device is added), of the states and of the scene results.",
+        "fr": "Langue des noms des fonctionnalités (fixés à l'ajout d'un appareil), des états et des résultats de scène.",
+        "de": "Sprache der Funktionsnamen (beim Anlegen eines Geräts festgelegt), der Zustände und der Szenen-Ergebnisse.",
+        "es": "Idioma de los nombres de las funciones (fijados al añadir un dispositivo), de los estados y de los resultados de escena."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
       "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "check_down",
+      "label": {
+        "en": "A check goes down",
+        "fr": "Un contrôle tombe en panne",
+        "de": "Ein Check fällt aus",
+        "es": "Un control cae"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A Healthchecks check goes down: no ping before the end of its grace time, or a failure signal.",
+        "fr": "Un contrôle Healthchecks passe en panne : pas de ping avant la fin du délai de grâce, ou un signal d'échec.",
+        "de": "Ein Healthchecks-Check fällt aus: kein Ping vor Ende der Kulanzzeit oder ein Fehlersignal.",
+        "es": "Un control de Healthchecks cae: ningún ping antes del fin del periodo de gracia, o una señal de fallo."
       },
       "fields": [
         {
           "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
           "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
+          "source": "devices",
+          "label": {
+            "en": "Checks (empty: any)",
+            "fr": "Contrôles (vide : tous)",
+            "de": "Checks (leer: alle)",
+            "es": "Controles (vacío: todos)"
+          }
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "check",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Check name",
+            "fr": "Nom du contrôle",
+            "de": "Name des Checks",
+            "es": "Nombre del control"
+          }
+        },
+        {
+          "key": "tags",
+          "type": "string",
+          "label": {
+            "en": "Tags",
+            "fr": "Étiquettes",
+            "de": "Tags",
+            "es": "Etiquetas"
+          }
+        },
+        {
+          "key": "last_ping",
+          "type": "string",
+          "label": {
+            "en": "Last ping",
+            "fr": "Dernier ping",
+            "de": "Letzter Ping",
+            "es": "Último ping"
+          }
+        }
+      ]
+    },
+    {
+      "key": "check_up",
+      "label": {
+        "en": "A check is back up",
+        "fr": "Un contrôle est rétabli",
+        "de": "Ein Check läuft wieder",
+        "es": "Un control se restablece"
+      },
+      "description": {
+        "en": "A check that was down receives a ping again, with the length of the outage.",
+        "fr": "Un contrôle en panne reçoit de nouveau un ping, avec la durée de la panne.",
+        "de": "Ein ausgefallener Check empfängt wieder einen Ping, mit der Dauer des Ausfalls.",
+        "es": "Un control caído recibe de nuevo un ping, con la duración de la caída."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Checks (empty: any)",
+            "fr": "Contrôles (vide : tous)",
+            "de": "Checks (leer: alle)",
+            "es": "Controles (vacío: todos)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "check",
+          "type": "string",
+          "label": {
+            "en": "Check name",
+            "fr": "Nom du contrôle",
+            "de": "Name des Checks",
+            "es": "Nombre del control"
+          }
+        },
+        {
+          "key": "tags",
+          "type": "string",
+          "label": {
+            "en": "Tags",
+            "fr": "Étiquettes",
+            "de": "Tags",
+            "es": "Etiquetas"
+          }
+        },
+        {
+          "key": "last_ping",
+          "type": "string",
+          "label": {
+            "en": "Last ping",
+            "fr": "Dernier ping",
+            "de": "Letzter Ping",
+            "es": "Último ping"
+          }
+        },
+        {
+          "key": "downtime_minutes",
+          "type": "number",
+          "label": {
+            "en": "Outage length (minutes)",
+            "fr": "Durée de la panne (minutes)",
+            "de": "Dauer des Ausfalls (Minuten)",
+            "es": "Duración de la caída (minutos)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "check_late",
+      "label": {
+        "en": "A check is late",
+        "fr": "Un contrôle est en retard",
+        "de": "Ein Check ist verspätet",
+        "es": "Un control se retrasa"
+      },
+      "description": {
+        "en": "A check missed its expected ping and enters its grace time: still time to act before it goes down.",
+        "fr": "Un contrôle a manqué son ping attendu et entre dans son délai de grâce : encore le temps d'agir avant la panne.",
+        "de": "Ein Check hat seinen erwarteten Ping verpasst und ist in der Kulanzzeit: noch Zeit zu handeln, bevor er ausfällt.",
+        "es": "Un control no recibió su ping esperado y entra en su periodo de gracia: aún hay tiempo antes de que caiga."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Checks (empty: any)",
+            "fr": "Contrôles (vide : tous)",
+            "de": "Checks (leer: alle)",
+            "es": "Controles (vacío: todos)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "check",
+          "type": "string",
+          "label": {
+            "en": "Check name",
+            "fr": "Nom du contrôle",
+            "de": "Name des Checks",
+            "es": "Nombre del control"
+          }
+        },
+        {
+          "key": "tags",
+          "type": "string",
+          "label": {
+            "en": "Tags",
+            "fr": "Étiquettes",
+            "de": "Tags",
+            "es": "Etiquetas"
+          }
+        },
+        {
+          "key": "last_ping",
+          "type": "string",
+          "label": {
+            "en": "Last ping",
+            "fr": "Dernier ping",
+            "de": "Letzter Ping",
+            "es": "Último ping"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "get_check_status",
+      "label": {
+        "en": "State of a check",
+        "fr": "État d'un contrôle",
+        "de": "Zustand eines Checks",
+        "es": "Estado de un control"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Reads the state of a check for the next actions: down or not, in words, and a ready-made sentence.",
+        "fr": "Lit l'état d'un contrôle pour les actions suivantes : en panne ou non, en toutes lettres, et une phrase toute prête.",
+        "de": "Liest den Zustand eines Checks für die nächsten Aktionen: ausgefallen oder nicht, in Worten, und einen fertigen Satz.",
+        "es": "Lee el estado de un control para las siguientes acciones: caído o no, en palabras, y una frase lista."
+      },
+      "timeout_seconds": 20,
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "label": {
+            "en": "Check",
+            "fr": "Contrôle",
+            "de": "Check",
+            "es": "Control"
+          },
           "required": true
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
+          "key": "down",
           "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "label": {
+            "en": "Down",
+            "fr": "En panne",
+            "de": "Ausgefallen",
+            "es": "Caído"
+          }
+        },
+        {
+          "key": "state",
+          "type": "string",
+          "label": {
+            "en": "State",
+            "fr": "État",
+            "de": "Zustand",
+            "es": "Estado"
+          }
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "label": {
+            "en": "Check name",
+            "fr": "Nom du contrôle",
+            "de": "Name des Checks",
+            "es": "Nombre del control"
+          }
+        },
+        {
+          "key": "last_ping",
+          "type": "string",
+          "label": {
+            "en": "Last ping",
+            "fr": "Dernier ping",
+            "de": "Letzter Ping",
+            "es": "Último ping"
+          }
+        },
+        {
+          "key": "sentence",
+          "type": "string",
+          "label": {
+            "en": "Sentence",
+            "fr": "Phrase",
+            "de": "Satz",
+            "es": "Frase"
+          }
+        }
+      ]
+    },
+    {
+      "key": "count_down_checks",
+      "label": {
+        "en": "Count the checks down",
+        "fr": "Compter les contrôles en panne",
+        "de": "Ausgefallene Checks zählen",
+        "es": "Contar los controles caídos"
+      },
+      "description": {
+        "en": "Counts the checks down, late and in total, and lists the ones down, for a message.",
+        "fr": "Compte les contrôles en panne, en retard et au total, et liste ceux en panne, pour un message.",
+        "de": "Zählt die ausgefallenen, verspäteten und alle Checks und listet die ausgefallenen auf, für eine Nachricht.",
+        "es": "Cuenta los controles caídos, con retraso y en total, y enumera los caídos, para un mensaje."
+      },
+      "timeout_seconds": 20,
+      "outputs": [
+        {
+          "key": "down",
+          "type": "number",
+          "label": {
+            "en": "Checks down",
+            "fr": "Contrôles en panne",
+            "de": "Ausgefallene Checks",
+            "es": "Controles caídos"
+          }
+        },
+        {
+          "key": "names",
+          "type": "string",
+          "label": {
+            "en": "Names of the checks down",
+            "fr": "Noms des contrôles en panne",
+            "de": "Namen der ausgefallenen Checks",
+            "es": "Nombres de los controles caídos"
+          }
+        },
+        {
+          "key": "late",
+          "type": "number",
+          "label": {
+            "en": "Checks late",
+            "fr": "Contrôles en retard",
+            "de": "Verspätete Checks",
+            "es": "Controles con retraso"
+          }
+        },
+        {
+          "key": "total",
+          "type": "number",
+          "label": {
+            "en": "Checks in total",
+            "fr": "Contrôles au total",
+            "de": "Checks insgesamt",
+            "es": "Controles en total"
+          }
+        }
+      ]
+    },
+    {
+      "key": "pause_check",
+      "label": {
+        "en": "Pause a check",
+        "fr": "Mettre un contrôle en pause",
+        "de": "Check pausieren",
+        "es": "Pausar un control"
+      },
+      "description": {
+        "en": "Pauses a check, for example before a planned maintenance (full API key).",
+        "fr": "Met un contrôle en pause, par exemple avant une maintenance prévue (clé d'API complète).",
+        "de": "Pausiert einen Check, zum Beispiel vor einer geplanten Wartung (vollständiger API-Schlüssel).",
+        "es": "Pausa un control, por ejemplo antes de un mantenimiento previsto (clave de API completa)."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Check",
+            "fr": "Contrôle",
+            "de": "Check",
+            "es": "Control"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "key": "resume_check",
+      "label": {
+        "en": "Resume a check",
+        "fr": "Reprendre un contrôle",
+        "de": "Check fortsetzen",
+        "es": "Reanudar un control"
+      },
+      "description": {
+        "en": "Resumes a paused check: it waits for its next ping (full API key).",
+        "fr": "Reprend un contrôle en pause : il attend son prochain ping (clé d'API complète).",
+        "de": "Setzt einen pausierten Check fort: Er wartet auf seinen nächsten Ping (vollständiger API-Schlüssel).",
+        "es": "Reanuda un control en pausa: espera su próximo ping (clave de API completa)."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Check",
+            "fr": "Contrôle",
+            "de": "Check",
+            "es": "Control"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "key": "send_ping",
+      "label": {
+        "en": "Send a ping",
+        "fr": "Envoyer un ping",
+        "de": "Ping senden",
+        "es": "Enviar un ping"
+      },
+      "description": {
+        "en": "Sends a success ping to a check, so a Gladys scene reports that it ran (full API key).",
+        "fr": "Envoie un ping de succès à un contrôle, pour qu'une scène Gladys signale qu'elle a tourné (clé d'API complète).",
+        "de": "Sendet einen Erfolgs-Ping an einen Check, damit eine Gladys-Szene meldet, dass sie gelaufen ist (vollständiger API-Schlüssel).",
+        "es": "Envía un ping de éxito a un control, para que una escena de Gladys indique que se ejecutó (clave de API completa)."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Check",
+            "fr": "Contrôle",
+            "de": "Check",
+            "es": "Control"
+          },
+          "required": true
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
+      "key": "healthchecks",
+      "label": {
+        "en": "Healthchecks",
+        "fr": "Healthchecks",
+        "de": "Healthchecks",
+        "es": "Healthchecks"
+      },
       "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+        "en": "Checks down first, then the late ones, then the others, with their last ping.",
+        "fr": "Les contrôles en panne d'abord, puis en retard, puis les autres, avec leur dernier ping.",
+        "de": "Erst die ausgefallenen Checks, dann die verspäteten, dann die anderen, mit letztem Ping.",
+        "es": "Primero los controles caídos, luego los retrasados y los demás, con su último ping."
       },
       "icon": "activity",
-      "action_timeout_seconds": 15
+      "action_timeout_seconds": 20,
+      "settings": [
+        {
+          "key": "checks",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Checks (empty: all)",
+            "fr": "Contrôles (vide : tous)",
+            "de": "Checks (leer: alle)",
+            "es": "Controles (vacío: todos)"
+          },
+          "description": {
+            "en": "Empty: every check of the project. Only the devices added to Gladys can be chosen.",
+            "fr": "Vide : tous les contrôles du projet. Seuls les appareils ajoutés à Gladys peuvent être choisis.",
+            "de": "Leer: alle Checks des Projekts. Nur die in Gladys angelegten Geräte sind wählbar.",
+            "es": "Vacío: todos los controles del proyecto. Solo se pueden elegir los dispositivos añadidos a Gladys."
+          },
+          "required": false
+        }
+      ]
     }
   ]
 }

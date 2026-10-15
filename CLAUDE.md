@@ -16,8 +16,8 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "down"    # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
@@ -31,16 +31,20 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only: src/app.js registers the handlers before connect()
+src/app.js                        every SDK handler -> the hub (also used by the tests)
+src/hub.js                        reading timer, states, transitions -> scene events, commands, views
+src/devices.js                    one device per check + the project device: features, names, values
+src/hc/client.js                  Management API v3 (fetch), errors by kind, unique_key, normalization
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget `healthchecks` (manifest `widgets`)
+src/texts.js                      connection, error, state, report and action texts (4 languages), dates
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/store.js, src/problems.js     /data/healthchecks-state.json; one log line per repeated failure
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+                                  and helpers/fakeHc.js (checked against test/fixtures/healthchecks)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +74,10 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, widget content, feature names, scene outputs, manifest texts, and
+  `docs/en.md`, `docs/fr.md`, `docs/de.md`, `docs/es.md`, kept in sync
+  (`test/i18n.test.js` checks the languages and the doc sections).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -197,6 +203,63 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
 - Les filtres de scène ne font qu'égalité et appartenance : un seuil reste le travail d'un capteur.
 - **Les clés de widgets, de déclencheurs et d'actions sont figées une fois publiées.**
 - `gladys_version` `>=5.1.0` dès qu'il y a widgets, déclencheurs ou actions de scène.
+
+## Healthchecks (propre à ce dépôt)
+
+- **API lue : Management API v3**, `GET /api/v3/checks/`, en-tête `X-Api-Key` (clé d'un **projet** :
+  une clé = un projet). Écritures : `POST /api/v3/checks/<uuid>/pause` et `/resume` (409 si le
+  contrôle n'est pas en pause : ignoré). Ping : `GET <ping_url>` **sans** clé (l'URL est le secret ;
+  sur healthchecks.io, elle est sur `hc-ping.com`). Aucune limite de débit côté API de gestion dans le
+  code de Healthchecks v4.4 (seulement des `TokenBucket` pour la connexion, les e-mails et certains
+  canaux).
+- **Clé en lecture seule** : la liste n'a ni `uuid`, ni `ping_url`, ni `pause_url`, mais un
+  `unique_key` = **sha1 des 16 premiers chiffres hexadécimaux de l'uuid** (vérifié sur la v4.4). Avec
+  la clé complète, l'intégration le calcule depuis l'uuid : un contrôle garde son appareil quand on
+  change de clé. Une écriture avec la clé en lecture seule répond **401 « wrong api key »**, comme
+  une mauvaise clé : l'intégration la détecte avant (absence d'uuid). Clé trop courte : 401 « missing
+  api key ».
+- États de l'API : `new`, `up`, `grace`, `down`, `paused`, plus `started: true` quand un `/start` attend
+  sa fin. En v4.4, un contrôle `new` qui a reçu `/start` reste `status: "new"` avec `started: true`
+  (pas `"started"` comme le laisse croire `get_status(with_started=True)`) : l'état « En cours » se lit
+  sur `started`. `next_ping` = début du retard (grâce) ; pour un contrôle démarré, c'est l'heure du
+  `/start` : non publié. `last_duration` (secondes) n'existe qu'après un couple start/succès.
+- **Transitions** (déclencheurs) sur l'état hors « en cours » : panne depuis à l'heure/en retard,
+  retard depuis à l'heure, rétabli depuis panne. Pause, reprise et nouveau n'annoncent rien (pas
+  d'événement en réponse à une action de scène : règle du SDK). Premier passage : on enregistre sans
+  annoncer. États gardés dans `/data/healthchecks-state.json`, contrôles supprimés oubliés.
+- **`input/binary` est vert à 1** (`BinaryDeviceValue.jsx`) : la fonctionnalité binaire est donc
+  « Fonctionne » (0 = en panne, 1 sinon, pause et nouveau compris), et non « En panne » (1 serait
+  affiché en vert).
+- `last_duration` est omis par l'API quand il vaut 0 (`if self.last_duration:`) : la fonctionnalité
+  « Durée » reste déclarée dès qu'un contrôle a été chronométré une fois (`timed` dans `/data`).
+- Le ping part en **POST** (un contrôle « POST seulement » ignore un GET, en répondant 200). Un
+  changement causé par une commande de scène (pause, reprise, ping) n'émet aucun événement
+  (`silenced`). Le fichier d'état n'est écrit que s'il change (usure de la carte SD).
+- Dernier ping, prochain ping, pings et durée changent à chaque ping : publiés au plus toutes les 5
+  min par contrôle (tout de suite si l'état change), via `publishChangedStates` du SDK (déduplication
+  et heartbeat de 12 h).
+- `fetch` en `redirect: 'manual'` : la clé ne suit pas une redirection vers un autre hôte. Pas
+  d'option « certificat auto-signé » (fetch ne sait pas l'accepter par requête) : documenté.
+
+## Vérifié sur un vrai Healthchecks
+
+Le 15/10/2026, image Docker de l'intégration lancée avec les contraintes du bac à sable de Gladys
+(`--cap-drop ALL --security-opt no-new-privileges --read-only --memory 256m --pids-limit 256`, volume
+`/data`, réseau en pont) contre `healthchecks/healthchecks` **v4.4** (SQLite), projet avec clé complète
+et clé en lecture seule, contrôles nouveau, à l'heure, en retard, en panne (`/fail` et délai dépassé),
+en pause, démarré (`/start`), chronométré, planifié en cron.
+
+- **Sans Gladys** : reconnexion du SDK en backoff, pas de plantage, aucun secret dans les logs,
+  ~18 Mo au repos, arrêt propre sur SIGTERM (code 0).
+- **Intégration complète** (faux Gladys du SDK, noms en français, `TZ=Europe/Paris`) : découverte
+  des 7 contrôles et du projet, états, badge `local`, « Tester la connexion », widget validé
+  (`validateWidgetContent`), « État d'un contrôle », « Compter les contrôles en panne », pause,
+  reprise, ping (POST, compté par Healthchecks). Contrôle réel de 60 s + 60 s de grâce : « en retard »
+  puis « en panne » annoncés, rien de plus après redémarrage sur le même `/data`, « rétabli » au ping
+  suivant. Clé en lecture seule : mêmes identifiants d'appareils, commandes refusées clairement.
+  Mauvaise clé, hôte inconnu, mauvais chemin : messages justes.
+- Non vérifié : healthchecks.io lui-même (même code, pas de compte), une instance Gladys réelle
+  (rendu du widget, éditeur de scènes), un serveur derrière un proxy avec sous-chemin.
 
 ## Store
 
