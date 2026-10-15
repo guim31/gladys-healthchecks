@@ -66,9 +66,9 @@ Chaque contrôle devient un appareil avec :
 
 - **État** : À l'heure, En retard, En panne, En cours, En pause ou Nouveau, en
   texte.
-- **Fonctionne** : Oui (vert) tant que le contrôle est à l'heure, en retard ou
-  en cours, Non (rouge) quand il est en panne. Rien tant qu'il est nouveau ou en
-  pause. Pratique comme condition de scène.
+- **Fonctionne** : Non (rouge) quand le contrôle est en panne, Oui (vert) sinon
+  (à l'heure, en retard, en cours, nouveau ou en pause). Pratique comme
+  condition de scène.
 - **Dernier ping** : jour/mois et heure du dernier ping.
 - **Prochain ping attendu** : quand le contrôle passera en retard sans nouveau
   ping ; « - » quand rien n'est attendu (contrôle en panne, en pause ou
@@ -128,9 +128,9 @@ pause, repris ou en cours.
 
 ### Idées de scènes
 
-- Quand **Un contrôle tombe en panne** avec l'étiquette `backup`, envoyer un
-  message Telegram « La sauvegarde n'a pas tourné, dernier ping
-  {{last_ping}} ».
+- Quand **Un contrôle tombe en panne**, limité aux contrôles de sauvegarde dans
+  son champ Contrôles, envoyer un message Telegram « La sauvegarde n'a pas
+  tourné, dernier ping {{last_ping}} ».
 - Chaque matin à 8 h, **Compter les contrôles en panne** et, s'il y en a au
   moins un, lire leurs noms sur l'enceinte.
 - Dans une scène nocturne de Gladys (arrosage, programmation du chauffage…),

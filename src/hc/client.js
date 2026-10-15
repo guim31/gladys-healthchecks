@@ -219,9 +219,17 @@ export class HcClient {
     this.check(response, { write: true });
   }
 
-  /** Send the "success" signal of a check (its ping URL holds the secret, no key). */
+  /**
+   * Send the "success" signal of a check (its ping URL holds the secret, no
+   * key). POST: a check set to "POST only" ignores a GET.
+   */
   async ping(pingUrl) {
-    const response = await this.call(pingUrl, { key: false });
-    this.check(response, { write: true });
+    const response = await this.call(pingUrl, { method: 'POST', key: false });
+    if (response.status < 200 || response.status >= 300) {
+      // The ping URL comes from the server (PING_ENDPOINT), not from the key.
+      throw new HcError(ERROR_KINDS.HTTP, `Ping refused (HTTP ${response.status})`, {
+        status: response.status,
+      });
+    }
   }
 }

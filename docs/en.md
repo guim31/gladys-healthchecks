@@ -60,9 +60,8 @@ The scene triggers work for every check, added or not.
 Each check becomes a device with:
 
 - **State**: On time, Late, Down, Running, Paused or New, as a text.
-- **Working**: Yes (green) while the check is on time, late or running, No
-  (red) when it is down. Nothing while it is new or paused. Handy as a scene
-  condition.
+- **Working**: No (red) when the check is down, Yes (green) otherwise (on
+  time, late, running, new or paused). Handy as a scene condition.
 - **Last ping**: day/month and time of the last ping.
 - **Next ping expected**: when the check turns late without a new ping; "-"
   when nothing is expected (down, paused or new check).
@@ -114,8 +113,9 @@ first read, nor for a check paused, resumed or running.
 
 ### Scene ideas
 
-- When **A check goes down** with the tag `backup`, send a Telegram message
-  "The backup did not run, last ping {{last_ping}}".
+- When **A check goes down**, limited to the backup checks in its Checks
+  field, send a Telegram message "The backup did not run, last ping
+  {{last_ping}}".
 - Every morning at 8:00, **Count the checks down** and, if there is at least
   one, read the names on the speaker.
 - In a nightly Gladys scene (watering, heating schedule…), end with **Send a

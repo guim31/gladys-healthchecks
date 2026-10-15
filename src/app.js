@@ -67,6 +67,8 @@ export function registerHandlers(gladys, options = {}) {
   gladys.onPoll(whenReady(() => hub.pollDevice()));
 
   gladys.onDeviceCreated(whenReady((device) => hub.onDeviceCreated(device)));
+  // "Update" in the Discovery tab (a feature added): same as a creation.
+  gladys.onDeviceUpdated(whenReady((device) => hub.onDeviceCreated(device)));
 
   gladys.onConfigUpdated(
     whenReady(async (newConfig) => {

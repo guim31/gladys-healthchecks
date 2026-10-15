@@ -6,6 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { validateWidgetContent } from '@gladysassistant/integration-sdk';
 import { FEATURE_KEYS, PROJECT_KEYS, projectIds } from '../src/devices.js';
 import { TRIGGERS, WIDGET_KEY } from '../src/hub.js';
 import {
@@ -55,7 +56,7 @@ test('the states of an added device, at once, then only the changes', async (t) 
   assert.match(world.fake.lastState(ids.feature(FEATURE_KEYS.NEXT_PING)), /^16\/10/);
   const never = idsOf(world, 'Never pinged');
   assert.equal(world.fake.lastState(never.feature(FEATURE_KEYS.STATE)), 'New');
-  assert.equal(world.fake.lastState(never.feature(FEATURE_KEYS.WORKING)), undefined);
+  assert.equal(world.fake.lastState(never.feature(FEATURE_KEYS.WORKING)), 1, 'new: not failing');
   assert.equal(world.fake.lastState(never.feature(FEATURE_KEYS.LAST_PING)), undefined);
   assert.equal(world.fake.lastState(never.feature(FEATURE_KEYS.NEXT_PING)), '-');
   const project = projectIds(world.gladys);
@@ -263,7 +264,21 @@ test('pause, resume and ping a check from a scene', async (t) => {
   assert.equal(world.hc.get('Nightly backup').status, 'new');
   assert.equal((await world.fake.sceneAction('send_ping', { device })).success, true);
   assert.equal(world.hc.get('Nightly backup').status, 'up');
-  assert.deepEqual(world.fake.sceneEvents, [], 'no event in answer to an action');
+  // A ping that brings a down check back up: no event in answer to an action.
+  world.hc.set('Certbot renew', { status: 'down' });
+  await world.hub.pollNow();
+  const certbot = idsOf(world, 'Certbot renew').device;
+  assert.equal((await world.fake.sceneAction('send_ping', { device: certbot })).success, true);
+  assert.equal(world.hc.get('Certbot renew').status, 'up');
+  assert.deepEqual(
+    world.fake.sceneEvents.map((event) => event.key),
+    [TRIGGERS.DOWN],
+    'only the down seen by the read, nothing in answer to the actions',
+  );
+  // The next real transition is announced again.
+  world.hc.set('Certbot renew', { status: 'down' });
+  await world.hub.pollNow();
+  assert.equal(events(world, TRIGGERS.DOWN).length, 2);
   const unknown = await world.fake.sceneAction('pause_check', { device: 'nope' });
   assert.match(unknown.error, /not a Healthchecks check/);
 });
@@ -297,6 +312,7 @@ test('the widget: checks down first, then late, then the others; a Refresh butto
   t.after(() => world.app.stop());
   const ack = await world.fake.widgetGet(WIDGET_KEY, { settings: {}, language: 'en' });
   assert.equal(ack.success, true, ack.error);
+  validateWidgetContent(ack.data.content);
   const { components } = ack.data.content;
   assert.deepEqual(
     components.filter((c) => c.type === 'value').map((c) => [c.label, c.value]),
@@ -335,6 +351,8 @@ test('the widget says what to do without key, and when Healthchecks does not ans
   t.after(() => world.app.stop());
   world.hc.failure = 'down';
   await world.hub.pollNow();
+  const toast = await world.fake.widgetAction(WIDGET_KEY, 'refresh');
+  assert.equal(toast.data?.message?.en ?? toast.data?.en, 'Healthchecks does not answer');
   const ack = await world.fake.widgetGet(WIDGET_KEY, { language: 'en' });
   assert.ok(ack.data.content.components.some((c) => c.text === 'Healthchecks does not answer'));
 });
@@ -359,6 +377,23 @@ test('a new language renames the devices proposed; a deleted check leaves', asyn
   world.hc.checks.pop();
   await world.hub.pollNow();
   assert.equal(world.fake.discoveredDevices.length, 3);
+});
+
+test('the state file is written only when something changed; a timed check keeps its duration', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const saves = t.mock.method(world.hub.store, 'save');
+  await world.hub.pollNow();
+  await world.hub.pollNow();
+  assert.equal(saves.mock.callCount(), 0);
+  world.hc.set('Certbot renew', { status: 'down' });
+  await world.hub.pollNow();
+  assert.equal(saves.mock.callCount(), 1);
+  // Healthchecks omits a zero duration: the feature stays declared.
+  world.hc.set('Nightly backup', { last_duration: undefined });
+  await world.hub.pollNow();
+  const backup = world.fake.discoveredDevices.find((d) => d.name === 'Nightly backup');
+  assert.ok(backup.features.some((f) => f.external_id.endsWith(FEATURE_KEYS.LAST_DURATION)));
 });
 
 test('Gladys restarted: everything is sent again', async (t) => {

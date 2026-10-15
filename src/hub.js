@@ -26,7 +26,7 @@ import {
   stateOf,
 } from './devices.js';
 import { ERROR_KINDS, HcClient, HcError } from './hc/client.js';
-import { hostOf, isCloud } from './config.js';
+import { hostOf, isCloud, normalizeConfig } from './config.js';
 import { ProblemLog } from './problems.js';
 import { CONNECTION_TEXT, ERROR_TEXT, REPORT_TEXT, formatTime, labelled, pick } from './texts.js';
 
@@ -73,7 +73,9 @@ export class HcHub {
     this.timersEnabled = timers;
     this.timings = { ...HUB_TIMINGS, ...timings };
     this.now = now ?? (() => Date.now());
-    this.config = null;
+    // Defaults until start(): a handler reached after a failed start still
+    // answers with a readable message.
+    this.config = normalizeConfig({});
     this.client = null;
     this.signature = null;
     /** @type {Map<string, object>} checks of the last read, by key */
@@ -87,7 +89,9 @@ export class HcHub {
     this.transports = new Map();
     this.connection = null;
     this.discovered = null;
-    this.saved = { checks: {} };
+    this.saved = { checks: {}, timed: {} };
+    /** Checks changed by a command: their next transition fires no event. */
+    this.silenced = new Set();
     this.pollTimer = null;
     this.stopped = false;
     // What fails again at every cycle (Gladys refusing, the reading loop):
@@ -99,9 +103,8 @@ export class HcHub {
 
   async start(config) {
     const saved = await this.store.load();
-    this.saved = {
-      checks: saved.checks && typeof saved.checks === 'object' ? saved.checks : {},
-    };
+    const object = (value) => (value && typeof value === 'object' ? value : {});
+    this.saved = { checks: object(saved.checks), timed: object(saved.timed) };
     await this.reconfigure(config);
   }
 
@@ -116,7 +119,7 @@ export class HcHub {
   }
 
   async reconfigure(config) {
-    const languageChanged = this.config && this.config.language !== config.language;
+    const languageChanged = this.signature !== null && this.config.language !== config.language;
     this.config = config;
     const signature = JSON.stringify([config.url, config.apiKey]);
     if (signature !== this.signature) {
@@ -136,12 +139,15 @@ export class HcHub {
       this.discovered = null;
       this.volatileAt.clear();
     }
-    if (this.client) {
-      await this.pollNow({ publish: true });
-    } else {
-      await this.afterChanges(true, { publish: true });
+    try {
+      if (this.client) {
+        await this.pollNow({ publish: true });
+      } else {
+        await this.afterChanges(true, { publish: true });
+      }
+    } finally {
+      this.schedulePoll();
     }
-    this.schedulePoll();
   }
 
   async stop() {
@@ -174,6 +180,12 @@ export class HcHub {
     await this.afterChanges(changed, { publish });
   }
 
+  /** Read after a command: a read already under way started before it. */
+  async pollAfterCommand() {
+    await this.polling?.catch(() => {});
+    await this.pollNow();
+  }
+
   /** Read again when the last read is older than `freshMs` (scene actions). */
   async refreshIfStale() {
     if (this.client && this.now() - this.readAt >= this.timings.freshMs) {
@@ -189,10 +201,15 @@ export class HcHub {
     if (!this.client) {
       return Promise.resolve(false);
     }
-    const client = this.client;
-    this.polling ??= this.read(client).finally(() => {
-      this.polling = null;
-    });
+    if (!this.polling) {
+      const polling = this.read(this.client).finally(() => {
+        // A read of a previous client must not drop the promise of the current one.
+        if (this.polling === polling) {
+          this.polling = null;
+        }
+      });
+      this.polling = polling;
+    }
     return this.polling;
   }
 
@@ -225,6 +242,7 @@ export class HcHub {
 
     const next = new Map();
     const stateChanged = new Set();
+    let dirty = false;
     for (const check of checks) {
       if (next.has(check.key)) {
         continue;
@@ -237,19 +255,29 @@ export class HcHub {
       if (previous && stateOf(previous) !== stateOf(check)) {
         stateChanged.add(check.key);
       }
-      await this.transition(check);
+      dirty = (await this.transition(check)) || dirty;
+      if (check.lastDuration !== null && !this.saved.timed[check.key]) {
+        this.saved.timed[check.key] = true;
+        dirty = true;
+      }
     }
     if ([...this.checks.keys()].some((key) => !next.has(key))) {
       widgetChanged = true; // a check deleted
     }
     this.checks = next;
     // A check deleted in Healthchecks is forgotten (a paused one is still listed).
-    for (const key of Object.keys(this.saved.checks)) {
-      if (!next.has(key)) {
-        delete this.saved.checks[key];
+    for (const table of Object.values(this.saved)) {
+      for (const key of Object.keys(table)) {
+        if (!next.has(key)) {
+          delete table[key];
+          dirty = true;
+        }
       }
     }
-    this.store.save(this.saved);
+    // Written only when something changed: no wear of the SD card at every read.
+    if (dirty) {
+      this.store.save(this.saved);
+    }
     await this.publishStates({ changed: stateChanged });
     return widgetChanged;
   }
@@ -264,23 +292,24 @@ export class HcHub {
     return wasError !== err.kind;
   }
 
-  /** Compare a check with its last state; fire the scene events. */
+  /**
+   * Compare a check with its last state; fire the scene events (none for a
+   * change that a scene command caused: no event in answer to an action).
+   * @returns {boolean} whether the saved state changed
+   */
   async transition(check) {
-    const now = this.now();
     const previous = this.saved.checks[check.key];
     const state = stateOf(check);
+    const silenced = this.silenced.delete(check.key);
     // "Running" settles nothing: a job that starts keeps its last state.
-    if (state === 'started') {
-      if (previous) {
-        previous.seenAt = now;
-      }
-      return;
+    if (state === 'started' || previous?.state === state) {
+      return false;
     }
-    if (!previous || previous.state === state) {
-      this.saved.checks[check.key] = { state, since: previous?.since ?? now, seenAt: now };
-      return;
+    const now = this.now();
+    this.saved.checks[check.key] = { state, since: now };
+    if (!previous || silenced) {
+      return true;
     }
-    this.saved.checks[check.key] = { state, since: now, seenAt: now };
     if (state === 'down' && ['up', 'grace'].includes(previous.state)) {
       logger.info(`${check.name} is down`);
       await this.fireCheck(TRIGGERS.DOWN, check);
@@ -292,6 +321,7 @@ export class HcHub {
       logger.info(`${check.name} is up again after ${minutes} min`);
       await this.fireCheck(TRIGGERS.UP, check, { downtime_minutes: minutes });
     }
+    return true;
   }
 
   async fireCheck(key, check, extra = {}) {
@@ -323,7 +353,9 @@ export class HcHub {
     }
     return [
       buildProjectDevice(this.gladys, language),
-      ...[...this.checks.values()].map((check) => buildCheckDevice(this.gladys, check, language)),
+      ...[...this.checks.values()].map((check) =>
+        buildCheckDevice(this.gladys, check, language, Boolean(this.saved.timed[check.key])),
+      ),
     ];
   }
 
@@ -352,12 +384,16 @@ export class HcHub {
     await this.afterChanges(true, { publish: true });
   }
 
-  /** The user added a device: its states sent before were dropped by Gladys. */
+  /**
+   * The user added (or updated) a device: its states sent before were dropped
+   * by Gladys, and a device deleted then added again needs its badge.
+   */
   async onDeviceCreated(device) {
     const key = parseCheckId(this.gladys, device.external_id);
     if (key) {
       this.volatileAt.delete(key);
     }
+    this.transports.delete(device.external_id);
     await this.publishStates({ changed: new Set(key ? [key] : []) });
     await this.publishTransports();
     this.gladys.requestWidgetRefresh(WIDGET_KEY);
@@ -514,12 +550,14 @@ export class HcHub {
       throw this.commandError(new HcError(ERROR_KINDS.READ_ONLY, 'Read-only key'));
     }
     try {
+      this.silenced.add(check.key);
       await this.client.setPaused(check.uuid, paused);
     } catch (err) {
+      this.silenced.delete(check.key);
       throw this.commandError(err);
     }
     logger.info(`${check.name} ${paused ? 'paused' : 'resumed'}`);
-    await this.pollNow();
+    await this.pollAfterCommand();
   }
 
   /** Send the "success" signal of a check, then read Healthchecks again. */
@@ -528,12 +566,14 @@ export class HcHub {
       throw this.commandError(new HcError(ERROR_KINDS.READ_ONLY, 'No ping URL'));
     }
     try {
+      this.silenced.add(check.key);
       await this.client.ping(check.pingUrl);
     } catch (err) {
+      this.silenced.delete(check.key);
       throw this.commandError(err);
     }
     logger.info(`${check.name} pinged`);
-    await this.pollNow();
+    await this.pollAfterCommand();
   }
 
   /** "Test the connection": read Healthchecks now, one line. */

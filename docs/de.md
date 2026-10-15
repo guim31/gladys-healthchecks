@@ -65,9 +65,9 @@ Jeder Check wird ein Gerät mit:
 
 - **Zustand**: Pünktlich, Verspätet, Ausgefallen, Läuft, Pausiert oder Neu, als
   Text.
-- **Funktioniert**: Ja (grün), solange der Check pünktlich, verspätet oder
-  laufend ist, Nein (rot), wenn er ausgefallen ist. Nichts, solange er neu oder
-  pausiert ist. Praktisch als Szenen-Bedingung.
+- **Funktioniert**: Nein (rot), wenn der Check ausgefallen ist, sonst Ja
+  (grün: pünktlich, verspätet, laufend, neu oder pausiert). Praktisch als
+  Szenen-Bedingung.
 - **Letzter Ping**: Tag/Monat und Uhrzeit des letzten Pings.
 - **Nächster Ping erwartet**: wann der Check ohne neuen Ping verspätet ist; „-“,
   wenn nichts erwartet wird (ausgefallener, pausierter oder neuer Check).
@@ -124,8 +124,9 @@ einen pausierten, fortgesetzten oder laufenden Check.
 
 ### Szenen-Ideen
 
-- Wenn **Ein Check fällt aus** mit dem Tag `backup`, eine Telegram-Nachricht
-  senden: „Das Backup ist nicht gelaufen, letzter Ping {{last_ping}}“.
+- Wenn **Ein Check fällt aus**, beschränkt auf die Backup-Checks in seinem Feld
+  Checks, eine Telegram-Nachricht senden: „Das Backup ist nicht gelaufen,
+  letzter Ping {{last_ping}}“.
 - Jeden Morgen um 8:00 **Ausgefallene Checks zählen** und, wenn es mindestens
   einen gibt, die Namen auf dem Lautsprecher vorlesen.
 - In einer nächtlichen Gladys-Szene (Bewässerung, Heizplan…) zum Schluss **Ping

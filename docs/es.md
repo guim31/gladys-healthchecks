@@ -64,9 +64,9 @@ Cada control se convierte en un dispositivo con:
 
 - **Estado**: Puntual, Con retraso, Caído, En ejecución, En pausa o Nuevo, como
   texto.
-- **Funciona**: Sí (verde) mientras el control está puntual, con retraso o en
-  ejecución, No (rojo) cuando está caído. Nada mientras es nuevo o está en
-  pausa. Útil como condición de escena.
+- **Funciona**: No (rojo) cuando el control está caído, Sí (verde) en los demás
+  casos (puntual, con retraso, en ejecución, nuevo o en pausa). Útil como
+  condición de escena.
 - **Último ping**: día/mes y hora del último ping.
 - **Próximo ping esperado**: cuándo el control pasará a con retraso sin un
   nuevo ping; « - » cuando no se espera nada (control caído, en pausa o nuevo).
@@ -123,8 +123,9 @@ ejecución.
 
 ### Ideas de escenas
 
-- Cuando **Un control cae** con la etiqueta `backup`, enviar un mensaje de
-  Telegram « La copia de seguridad no se ejecutó, último ping {{last_ping}} ».
+- Cuando **Un control cae**, limitado a los controles de copia de seguridad en
+  su campo Controles, enviar un mensaje de Telegram « La copia de seguridad no
+  se ejecutó, último ping {{last_ping}} ».
 - Cada mañana a las 8:00, **Contar los controles caídos** y, si hay al menos
   uno, leer sus nombres en el altavoz.
 - En una escena nocturna de Gladys (riego, programación de la calefacción…),

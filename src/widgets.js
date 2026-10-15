@@ -174,6 +174,9 @@ async function action(hub, { actionKey }) {
     throw new Error(`Unknown action ${actionKey}`);
   }
   await hub.pollNow();
+  if (hub.error) {
+    return { message: ERROR_TEXT[hub.error.kind] };
+  }
   return { message: TEXT.refreshed };
 }
 

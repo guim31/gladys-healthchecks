@@ -228,12 +228,38 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
   d'événement en réponse à une action de scène : règle du SDK). Premier passage : on enregistre sans
   annoncer. États gardés dans `/data/healthchecks-state.json`, contrôles supprimés oubliés.
 - **`input/binary` est vert à 1** (`BinaryDeviceValue.jsx`) : la fonctionnalité binaire est donc
-  « Fonctionne » (1 = pas en panne), et non « En panne » (1 serait affiché en vert).
+  « Fonctionne » (0 = en panne, 1 sinon, pause et nouveau compris), et non « En panne » (1 serait
+  affiché en vert).
+- `last_duration` est omis par l'API quand il vaut 0 (`if self.last_duration:`) : la fonctionnalité
+  « Durée » reste déclarée dès qu'un contrôle a été chronométré une fois (`timed` dans `/data`).
+- Le ping part en **POST** (un contrôle « POST seulement » ignore un GET, en répondant 200). Un
+  changement causé par une commande de scène (pause, reprise, ping) n'émet aucun événement
+  (`silenced`). Le fichier d'état n'est écrit que s'il change (usure de la carte SD).
 - Dernier ping, prochain ping, pings et durée changent à chaque ping : publiés au plus toutes les 5
   min par contrôle (tout de suite si l'état change), via `publishChangedStates` du SDK (déduplication
   et heartbeat de 12 h).
 - `fetch` en `redirect: 'manual'` : la clé ne suit pas une redirection vers un autre hôte. Pas
   d'option « certificat auto-signé » (fetch ne sait pas l'accepter par requête) : documenté.
+
+## Vérifié sur un vrai Healthchecks
+
+Le 15/10/2026, image Docker de l'intégration lancée avec les contraintes du bac à sable de Gladys
+(`--cap-drop ALL --security-opt no-new-privileges --read-only --memory 256m --pids-limit 256`, volume
+`/data`, réseau en pont) contre `healthchecks/healthchecks` **v4.4** (SQLite), projet avec clé complète
+et clé en lecture seule, contrôles nouveau, à l'heure, en retard, en panne (`/fail` et délai dépassé),
+en pause, démarré (`/start`), chronométré, planifié en cron.
+
+- **Sans Gladys** : reconnexion du SDK en backoff, pas de plantage, aucun secret dans les logs,
+  ~18 Mo au repos, arrêt propre sur SIGTERM (code 0).
+- **Intégration complète** (faux Gladys du SDK, noms en français, `TZ=Europe/Paris`) : découverte
+  des 7 contrôles et du projet, états, badge `local`, « Tester la connexion », widget validé
+  (`validateWidgetContent`), « État d'un contrôle », « Compter les contrôles en panne », pause,
+  reprise, ping (POST, compté par Healthchecks). Contrôle réel de 60 s + 60 s de grâce : « en retard »
+  puis « en panne » annoncés, rien de plus après redémarrage sur le même `/data`, « rétabli » au ping
+  suivant. Clé en lecture seule : mêmes identifiants d'appareils, commandes refusées clairement.
+  Mauvaise clé, hôte inconnu, mauvais chemin : messages justes.
+- Non vérifié : healthchecks.io lui-même (même code, pas de compte), une instance Gladys réelle
+  (rendu du widget, éditeur de scènes), un serveur derrière un proxy avec sous-chemin.
 
 ## Store
 

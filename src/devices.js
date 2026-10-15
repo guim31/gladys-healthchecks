@@ -6,9 +6,8 @@
 //     same with a full or a read-only API key, see src/hc/client.js):
 //       state          text/text      "On time", "Late", "Down"… (the
 //                                     language of the configuration)
-//       working        input/binary   1 on time, late or running, 0 down —
-//                                     green / red badge, a Yes/No condition.
-//                                     Nothing while new or paused.
+//       working        input/binary   0 down, 1 otherwise — green / red
+//                                     badge, a Yes/No condition.
 //       last_ping      text/text      day/month hours:minutes
 //       next_ping      text/text      when the check turns late, "-" when
 //                                     nothing is expected (down, paused, new)
@@ -168,7 +167,7 @@ const counter = (name, externalId, max) =>
   );
 
 /** The discovery payload of a check. */
-export function buildCheckDevice(gladys, check, language = 'en') {
+export function buildCheckDevice(gladys, check, language = 'en', timed = false) {
   const ids = checkIds(gladys, check.key);
   const names = NAMES[language] ?? NAMES.en;
   const features = [
@@ -184,7 +183,9 @@ export function buildCheckDevice(gladys, check, language = 'en') {
     text(names[FEATURE_KEYS.NEXT_PING], ids.feature(FEATURE_KEYS.NEXT_PING)),
     counter(names[FEATURE_KEYS.PINGS], ids.feature(FEATURE_KEYS.PINGS), MAX_PINGS),
   ];
-  if (check.lastDuration !== null) {
+  // Declared once a run was timed, and kept: Healthchecks omits a zero or
+  // reset duration, the device structure must not follow it.
+  if (timed || check.lastDuration !== null) {
     features.push(
       sensor(
         names[FEATURE_KEYS.LAST_DURATION],
@@ -233,11 +234,9 @@ export function checkValues(gladys, check, language) {
   const ids = checkIds(gladys, check.key);
   const state = stateOf(check);
   const values = [{ key: FEATURE_KEYS.STATE, text: pick(STATE_TEXT[state], language) }];
-  if (state === 'down') {
-    values.push({ key: FEATURE_KEYS.WORKING, state: 0 });
-  } else if (['up', 'grace', 'started'].includes(state)) {
-    values.push({ key: FEATURE_KEYS.WORKING, state: 1 });
-  }
+  // Paused and new count as working: not failing (a down check paused must
+  // not stay red for the whole pause).
+  values.push({ key: FEATURE_KEYS.WORKING, state: state === 'down' ? 0 : 1 });
   if (check.lastPing !== null) {
     values.push({ key: FEATURE_KEYS.LAST_PING, text: formatTime(check.lastPing, language) });
   }
