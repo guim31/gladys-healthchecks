@@ -1,8 +1,8 @@
 {
-  "name": "gladys-integration-template-js",
+  "name": "gladys-healthchecks",
   "version": "1.0.0",
   "private": true,
-  "description": "Official starter template to build an external integration for Gladys Assistant with the JavaScript SDK.",
+  "description": "Healthchecks (healthchecks.io or self-hosted) cron job monitoring in Gladys Assistant.",
   "type": "module",
   "main": "index.js",
   "scripts": {
