@@ -8,8 +8,8 @@
     "de": "Deine Cronjobs und Backups aus Healthchecks in Gladys: Reagiere, wenn einer ausbleibt.",
     "es": "Sus tareas cron y copias vigiladas por Healthchecks en Gladys: reaccione si una se detiene."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/guim31/gladys-healthchecks:1.0.0",
+  "version": "1.0.1",
+  "docker_image": "ghcr.io/guim31/gladys-healthchecks:1.0.1",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-healthchecks/main/cover.png",
   "categories": ["services", "network"],

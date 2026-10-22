@@ -1,6 +1,6 @@
 {
   "name": "gladys-healthchecks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Healthchecks (healthchecks.io or self-hosted) cron job monitoring in Gladys Assistant.",
   "type": "module",
